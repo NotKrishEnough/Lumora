@@ -58,7 +58,8 @@ private fun LumoraApp(tdLib: TdLibManager) {
         surface = Color(0xFF202B3B),
         primary = Cyan,
         onBackground = Color.White,
-        onSurface = Color.White
+        onSurface = Color.White,
+        onSurfaceVariant = Color.White.copy(alpha = .72f)
     )) {
         Box(
             Modifier.fillMaxSize().background(
@@ -149,7 +150,7 @@ private fun ConnectedScreen(tdLib: TdLibManager) {
     ) {
         Text("LUMORA", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
         Spacer(Modifier.height(10.dp))
-        Text("Chats", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+        Text("Chats", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(14.dp))
         if (tdLib.chats.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -188,7 +189,7 @@ private fun ChatRow(chat: TdApi.Chat) {
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(chat.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(chat.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             Text(
                 if (chat.lastMessage != null) "Telegram chat" else "No messages yet",
                 color = Color.White.copy(.50f),
@@ -208,7 +209,7 @@ private fun AuthCard(title: String, subtitle: String, content: @Composable Colum
     ) {
         Text("LUMORA", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
         Spacer(Modifier.height(10.dp))
-        Text(title, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+        Text(title, color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
         Text(subtitle, color = Color.White.copy(.62f), fontSize = 13.sp)
         Spacer(Modifier.height(22.dp))
