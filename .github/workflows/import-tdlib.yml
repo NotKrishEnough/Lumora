@@ -1,0 +1,74 @@
+name: Import TDLib into Lumora
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "TDLib build workflow run ID"
+        required: true
+        default: "37253062014"
+      artifact_name:
+        description: "TDLib artifact name"
+        required: true
+        default: "lumora-tdlib-android-1"
+  workflow_run:
+    workflows: ["Build TDLib Android"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  import:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Lumora
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download TDLib build artifact
+        uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.run_id || github.event.workflow_run.id }}
+          name: ${{ inputs.artifact_name || format('lumora-tdlib-android-{0}', github.event.workflow_run.run_number) }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: tdlib-artifact
+
+      - name: Import Java API and arm64 JNI library
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f tdlib-artifact/tdlib.zip
+          mkdir -p tdlib-unpacked
+          unzip -q tdlib-artifact/tdlib.zip -d tdlib-unpacked
+
+          JAVA_SOURCE="tdlib-unpacked/tdlib/java/org/drinkless/tdlib"
+          NATIVE_SOURCE="tdlib-unpacked/tdlib/libs/arm64-v8a/libtdjni.so"
+          test -f "$JAVA_SOURCE/Client.java"
+          test -f "$JAVA_SOURCE/TdApi.java"
+          test -f "$NATIVE_SOURCE"
+
+          mkdir -p app/src/main/java/org/drinkless/tdlib
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          cp "$JAVA_SOURCE/Client.java" "$JAVA_SOURCE/TdApi.java" app/src/main/java/org/drinkless/tdlib/
+          cp "$NATIVE_SOURCE" app/src/main/jniLibs/arm64-v8a/
+          echo "Imported TDLib Java API and arm64-v8a JNI library:"
+          ls -lh app/src/main/java/org/drinkless/tdlib app/src/main/jniLibs/arm64-v8a
+
+      - name: Commit imported TDLib files
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/org/drinkless/tdlib app/src/main/jniLibs/arm64-v8a
+          if git diff --cached --quiet; then
+            echo "TDLib files are already up to date."
+            exit 0
+          fi
+          git commit -m "Add TDLib Android Java API and arm64 JNI"
+          git push origin HEAD:main
