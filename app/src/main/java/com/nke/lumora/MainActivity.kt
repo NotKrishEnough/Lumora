@@ -2,6 +2,7 @@ package com.nke.lumora
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import org.drinkless.tdlib.TdApi
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
