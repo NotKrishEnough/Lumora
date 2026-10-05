@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -69,7 +71,7 @@ private fun LumoraApp(tdLib: TdLibManager) {
                 TdLibManager.AuthState.WaitingForPhone -> PhoneScreen(tdLib)
                 TdLibManager.AuthState.WaitingForCode -> CodeScreen(tdLib)
                 TdLibManager.AuthState.WaitingForPassword -> PasswordScreen(tdLib)
-                TdLibManager.AuthState.Ready -> ConnectedScreen()
+                TdLibManager.AuthState.Ready -> ConnectedScreen(tdLib)
                 TdLibManager.AuthState.Closed -> ErrorScreen("Telegram connection closed.")
                 is TdLibManager.AuthState.Error -> ErrorScreen(tdLib.error ?: "Telegram setup failed.")
             }
@@ -141,21 +143,65 @@ private fun PasswordScreen(tdLib: TdLibManager) {
 }
 
 @Composable
-private fun ConnectedScreen() {
-    CenterColumn {
-        Icon(Icons.Default.CheckCircle, null, tint = Cyan, modifier = Modifier.size(56.dp))
-        Spacer(Modifier.height(16.dp))
-        Text("Telegram connected", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text("Lumora is authenticated with your Telegram account.", color = Color.White.copy(.62f), fontSize = 13.sp)
-        Spacer(Modifier.height(22.dp))
-        Text("Real chats and message sync are next.", color = Color.White.copy(.45f), fontSize = 12.sp)
+private fun ConnectedScreen(tdLib: TdLibManager) {
+    Column(
+        Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 18.dp, vertical = 12.dp)
+    ) {
+        Text("LUMORA", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
+        Spacer(Modifier.height(10.dp))
+        Text("Chats", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(14.dp))
+        if (tdLib.chats.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = Cyan, modifier = Modifier.size(28.dp))
+                    Spacer(Modifier.height(12.dp))
+                    Text("Loading your chats…", color = Color.White.copy(.55f))
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 20.dp)
+            ) {
+                items(tdLib.chats, key = { it.id }) { chat -> ChatRow(chat) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatRow(chat: TdApi.Chat) {
+    Row(
+        Modifier.fillMaxWidth()
+            .background(Glass, RoundedCornerShape(22.dp))
+            .border(1.dp, Color.White.copy(.10f), RoundedCornerShape(22.dp))
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(48.dp).background(Cyan.copy(.18f), RoundedCornerShape(16.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(chat.title.take(1).uppercase(), color = Cyan, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(chat.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(
+                if (chat.lastMessage != null) "Telegram chat" else "No messages yet",
+                color = Color.White.copy(.50f),
+                fontSize = 12.sp
+            )
+        }
     }
 }
 
 @Composable
 private fun AuthCard(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 22.dp)
+        Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 22.dp)
             .background(Glass, RoundedCornerShape(28.dp))
             .border(1.dp, Color.White.copy(.16f), RoundedCornerShape(28.dp))
             .padding(22.dp)
