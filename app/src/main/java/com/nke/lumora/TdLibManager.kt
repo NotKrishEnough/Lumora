@@ -10,6 +10,7 @@ class TdLibManager(context: Context) {
     private val databaseDir = File(appContext.filesDir, "tdlib").apply { mkdirs() }
     private val filesDir = File(appContext.filesDir, "tdlib-files").apply { mkdirs() }
     private var client: Client? = null
+    private var apiId: Int = 0
     var state: AuthState = AuthState.Starting
         private set
     var error: String? = null
@@ -23,7 +24,7 @@ class TdLibManager(context: Context) {
 
     fun start() {
         if (client != null) return
-        val apiId = BuildConfig.TELEGRAM_API_ID.toIntOrNull() ?: 0
+        apiId = BuildConfig.TELEGRAM_API_ID.toIntOrNull() ?: 0
         val apiHash = BuildConfig.TELEGRAM_API_HASH
         if (apiId <= 0 || apiHash.isBlank()) {
             state = AuthState.Error("Telegram API credentials are not configured in this build.")
@@ -72,16 +73,6 @@ class TdLibManager(context: Context) {
                         state = AuthState.Error(result.message)
                         notifyChanged()
                     }
-                }
-            }
-            is TdApi.AuthorizationStateWaitEncryptionKey -> {
-                state = AuthState.Initializing
-                client?.send(TdApi.CheckDatabaseEncryptionKey(ByteArray(0))) { result ->
-                    if (result is TdApi.Error) {
-                        error = result.message
-                        state = AuthState.Error(result.message)
-                    }
-                    notifyChanged()
                 }
             }
             is TdApi.AuthorizationStateWaitPhoneNumber -> {
