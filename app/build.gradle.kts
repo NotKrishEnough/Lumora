@@ -16,7 +16,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.2.0"
-        buildConfigField("Int", "TELEGRAM_API_ID", System.getenv("TELEGRAM_API_ID") ?: "0")
+        buildConfigField("String", "TELEGRAM_API_ID", "\"" + (System.getenv("TELEGRAM_API_ID") ?: "0") + "\"")
         buildConfigField("String", "TELEGRAM_API_HASH", "\"" + (System.getenv("TELEGRAM_API_HASH") ?: "") + "\"")
     }
     buildFeatures {
