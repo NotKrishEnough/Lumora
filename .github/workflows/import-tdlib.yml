@@ -60,6 +60,25 @@ jobs:
           echo "Imported TDLib Java API and arm64-v8a JNI library:"
           ls -lh app/src/main/java/org/drinkless/tdlib app/src/main/jniLibs/arm64-v8a
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify Lumora builds with TDLib
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Upload TDLib-enabled debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumora-tdlib-enabled-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
       - name: Commit imported TDLib files
         run: |
           set -euo pipefail
