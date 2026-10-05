@@ -1,0 +1,46 @@
+name: Build TDLib Android
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build-tdlib:
+    name: Build official TDLib Android JNI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout Lumora
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned TDLib source
+        uses: actions/checkout@v4
+        with:
+          repository: tdlib/td
+          ref: 42e6a5259551178d1dab54a22ad96d14bd906e20
+          path: tdlib-source
+
+      - name: Build TDLib using its official Android Dockerfile
+        working-directory: tdlib-source/example/android
+        run: |
+          docker build \
+            --build-arg COMMIT_HASH=42e6a5259551178d1dab54a22ad96d14bd906e20 \
+            --build-arg TDLIB_INTERFACE=Java \
+            --output type=local,dest="$GITHUB_WORKSPACE/tdlib-output" .
+
+      - name: Verify native and Java outputs
+        run: |
+          set -euo pipefail
+          find tdlib-output -maxdepth 4 -type f -print
+          test -n "$(find tdlib-output -type f -name '*.zip' -o -name '*.aar')"
+
+      - name: Upload TDLib build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumora-tdlib-android-${{ github.run_number }}
+          path: tdlib-output/
+          if-no-files-found: error
+          retention-days: 14
