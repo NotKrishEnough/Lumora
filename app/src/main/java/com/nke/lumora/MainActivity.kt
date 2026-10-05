@@ -138,7 +138,7 @@ private fun SettingRow(title: String, subtitle: String, checked: Boolean, onChan
 
 @Composable
 private fun EmptyState(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
-    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
         GlassPanel(Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(icon, null, tint = Cyan, modifier = Modifier.size(34.dp))
