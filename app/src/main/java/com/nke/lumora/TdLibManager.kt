@@ -28,6 +28,8 @@ class TdLibManager(context: Context) {
         private set
     var mediaPaths: Map<Long, String> = emptyMap()
         private set
+    var filePaths: Map<Int, String> = emptyMap()
+        private set
     var stickers: List<TdApi.Sticker> = emptyList()
         private set
     var animations: List<TdApi.Animation> = emptyList()
@@ -67,6 +69,7 @@ class TdLibManager(context: Context) {
                         if (match != null) avatarPaths = avatarPaths + (match.id to file.local.path)
                         val mediaMessage = messages.firstOrNull { messageFileId(it) == file.id }
                         if (mediaMessage != null) mediaPaths = mediaPaths + (mediaMessage.id to file.local.path)
+                        filePaths = filePaths + (file.id to file.local.path)
                         notifyChanged()
                     }
                 }
