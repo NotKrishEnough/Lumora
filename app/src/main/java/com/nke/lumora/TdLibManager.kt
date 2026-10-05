@@ -52,10 +52,20 @@ class TdLibManager(context: Context) {
                 state = AuthState.Initializing
                 notifyChanged()
                 client?.send(TdApi.SetTdlibParameters(
-                    false, databaseDir.absolutePath, filesDir.absolutePath, "",
-                    BuildConfig.TELEGRAM_API_ID, BuildConfig.TELEGRAM_API_HASH, "",
-                    "en", "Lumora", android.os.Build.VERSION.RELEASE,
-                    BuildConfig.VERSION_NAME, false
+                    false,
+                    databaseDir.absolutePath,
+                    filesDir.absolutePath,
+                    ByteArray(0),
+                    false,
+                    true,
+                    true,
+                    true,
+                    BuildConfig.TELEGRAM_API_ID,
+                    BuildConfig.TELEGRAM_API_HASH,
+                    "en",
+                    "Lumora",
+                    android.os.Build.VERSION.RELEASE,
+                    BuildConfig.VERSION_NAME
                 )) { result ->
                     if (result is TdApi.Error) {
                         error = result.message
@@ -66,7 +76,7 @@ class TdLibManager(context: Context) {
             }
             is TdApi.AuthorizationStateWaitEncryptionKey -> {
                 state = AuthState.Initializing
-                client?.send(TdApi.CheckDatabaseEncryptionKey()) { result ->
+                client?.send(TdApi.CheckDatabaseEncryptionKey(ByteArray(0))) { result ->
                     if (result is TdApi.Error) {
                         error = result.message
                         state = AuthState.Error(result.message)
