@@ -15,6 +15,11 @@ import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Animation
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.clip
 import android.graphics.BitmapFactory
@@ -167,7 +172,7 @@ private fun ConnectedScreen(tdLib: TdLibManager) {
                     0 -> ChatsScreen(tdLib)
                     1 -> SimpleSection("Contacts", Icons.Default.Contacts)
                     2 -> SimpleSection("Calls", Icons.Default.Call)
-                    else -> SimpleSection("Settings", Icons.Default.Settings)
+                    else -> SettingsScreen()
                 }
             }
         }
@@ -271,46 +276,111 @@ private fun Avatar(title: String, path: String?) {
 
 @Composable
 private fun ChatScreen(tdLib: TdLibManager, chat: TdApi.Chat) {
+    var draft by remember { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { tdLib.closeChat() }) {
-                Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
-            }
+            IconButton(onClick = { tdLib.closeChat() }) { Icon(Icons.Default.ArrowBack, "Back", tint = Color.White) }
             Avatar(chat.title, tdLib.avatarPaths[chat.id])
             Spacer(Modifier.width(12.dp))
             Text(chat.title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1)
         }
         HorizontalDivider(color = Color.White.copy(.08f))
-        if (tdLib.messages.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Loading messages…", color = Color.White.copy(.55f))
-            }
-        } else {
-            LazyColumn(
-                Modifier.fillMaxSize().padding(horizontal = 14.dp),
-                reverseLayout = true,
-                contentPadding = PaddingValues(vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(tdLib.messages, key = { it.id }) { message ->
-                    val text = if (message.content is TdApi.MessageText) {
-                        (message.content as TdApi.MessageText).text.text
-                    } else {
-                        message.content.javaClass.simpleName.removePrefix("Message")
-                    }
-                    Row(Modifier.fillMaxWidth()) {
-                        Text(
-                            text,
-                            color = Color.White,
-                            modifier = Modifier.background(Glass, RoundedCornerShape(18.dp)).padding(12.dp)
-                        )
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (tdLib.messages.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No messages yet", color = Color.White.copy(.55f))
+                }
+            } else {
+                LazyColumn(
+                    Modifier.fillMaxSize().padding(horizontal = 14.dp),
+                    reverseLayout = true,
+                    contentPadding = PaddingValues(vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(tdLib.messages, key = { it.id }) { message ->
+                        val text = if (message.content is TdApi.MessageText) (message.content as TdApi.MessageText).text.text
+                        else message.content.javaClass.simpleName.removePrefix("Message")
+                        Row(Modifier.fillMaxWidth()) {
+                            Text(text, color = Color.White, modifier = Modifier.background(Glass, RoundedCornerShape(18.dp)).padding(12.dp))
+                        }
                     }
                 }
             }
         }
+        Row(
+            Modifier.fillMaxWidth().padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = draft,
+                onValueChange = { draft = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Message", color = Color.White.copy(.45f)) },
+                maxLines = 4,
+                shape = RoundedCornerShape(22.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            IconButton(
+                onClick = { tdLib.sendMessage(draft); draft = "" },
+                enabled = draft.isNotBlank()
+            ) {
+                Icon(Icons.Default.Send, "Send", tint = if (draft.isNotBlank()) Cyan else Color.White.copy(.3f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsScreen() {
+    var notifications by remember { mutableStateOf(true) }
+    var animations by remember { mutableStateOf(true) }
+    var glass by remember { mutableStateOf(true) }
+    var compact by remember { mutableStateOf(false) }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 12.dp)) {
+        Text("LUMORA", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
+        Spacer(Modifier.height(8.dp))
+        Text("Settings", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(18.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
+            item { SettingsHeader("Appearance") }
+            item { SettingToggle("Glass interface", "Use Lumora's glass surfaces", Icons.Default.DarkMode, glass) { glass = it } }
+            item { SettingToggle("Animations", "Smooth transitions and motion", Icons.Default.Animation, animations) { animations = it } }
+            item { SettingToggle("Compact chats", "Reduce spacing in the chat list", Icons.Default.Security, compact) { compact = it } }
+            item { SettingsHeader("Notifications") }
+            item { SettingToggle("Message notifications", "Show notifications for new messages", Icons.Default.Notifications, notifications) { notifications = it } }
+            item {
+                Row(Modifier.fillMaxWidth().background(Glass, RoundedCornerShape(20.dp)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Telegram account", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text("Connected via TDLib", color = Color.White.copy(.5f), fontSize = 12.sp)
+                    }
+                    Text("CONNECTED", color = Cyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            item { Text("Lumora • Telegram client", color = Color.White.copy(.35f), fontSize = 12.sp, modifier = Modifier.padding(8.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun SettingsHeader(text: String) {
+    Text(text, color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp))
+}
+
+@Composable
+private fun SettingToggle(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().background(Glass, RoundedCornerShape(20.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = Cyan, modifier = Modifier.size(26.dp))
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, color = Color.White.copy(.5f), fontSize = 12.sp)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
