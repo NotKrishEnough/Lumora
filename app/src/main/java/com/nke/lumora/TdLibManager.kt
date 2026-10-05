@@ -18,6 +18,12 @@ class TdLibManager(context: Context) {
     private var listener: (() -> Unit)? = null
     var chats: List<TdApi.Chat> = emptyList()
         private set
+    var selectedChat: TdApi.Chat? = null
+        private set
+    var messages: List<TdApi.Message> = emptyList()
+        private set
+    var avatarPaths: Map<Long, String> = emptyMap()
+        private set
 
     fun observe(listener: () -> Unit) {
         this.listener = listener
@@ -37,6 +43,16 @@ class TdLibManager(context: Context) {
         client = Client.create({ update ->
             when (update) {
                 is TdApi.UpdateAuthorizationState -> handleAuthState(update.authorizationState)
+                is TdApi.UpdateFile -> {
+                    val file = update.file
+                    if (file.local.isDownloadingCompleted && file.local.path.isNotBlank()) {
+                        val match = chats.firstOrNull { it.photo?.small?.id == file.id }
+                        if (match != null) {
+                            avatarPaths = avatarPaths + (match.id to file.local.path)
+                            notifyChanged()
+                        }
+                    }
+                }
             }
         }, { throwable ->
             error = throwable.message ?: throwable.javaClass.simpleName
@@ -124,6 +140,9 @@ class TdLibManager(context: Context) {
                         remaining--
                         if (remaining == 0) {
                             chats = loaded.sortedByDescending { it.lastMessage?.date ?: 0 }
+                            chats.forEach { chat ->
+                                chat.photo?.small?.let { client?.send(TdApi.DownloadFile(it.id, 1, 0, 0, false)) { } }
+                            }
                             notifyChanged()
                         }
                     }
@@ -133,6 +152,24 @@ class TdLibManager(context: Context) {
                 notifyChanged()
             }
         }
+    }
+
+    fun openChat(chat: TdApi.Chat) {
+        selectedChat = chat
+        messages = emptyList()
+        notifyChanged()
+        client?.send(TdApi.GetChatHistory(chat.id, 0, 0, 50, false)) { result ->
+            if (result is TdApi.Messages) {
+                messages = result.messages?.toList()?.reversed() ?: emptyList()
+                notifyChanged()
+            }
+        }
+    }
+
+    fun closeChat() {
+        selectedChat = null
+        messages = emptyList()
+        notifyChanged()
     }
 
     fun setPhone(phone: String) {
