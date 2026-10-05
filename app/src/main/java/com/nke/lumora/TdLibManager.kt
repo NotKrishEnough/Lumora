@@ -23,7 +23,7 @@ class TdLibManager(context: Context) {
 
     fun start() {
         if (client != null) return
-        val apiId = BuildConfig.TELEGRAM_API_ID
+        val apiId = BuildConfig.TELEGRAM_API_ID.toIntOrNull() ?: 0
         val apiHash = BuildConfig.TELEGRAM_API_HASH
         if (apiId <= 0 || apiHash.isBlank()) {
             state = AuthState.Error("Telegram API credentials are not configured in this build.")
@@ -60,7 +60,7 @@ class TdLibManager(context: Context) {
                     true,
                     true,
                     true,
-                    BuildConfig.TELEGRAM_API_ID,
+                    apiId,
                     BuildConfig.TELEGRAM_API_HASH,
                     "en",
                     "Lumora",
