@@ -171,7 +171,7 @@ class TdLibManager(context: Context) {
         if (text.isBlank()) return
         val formatted = TdApi.FormattedText(text.trim(), null)
         val content = TdApi.InputMessageText(formatted, null, false)
-        client?.send(TdApi.SendMessage(chat.id, 0, null, null, content)) { result ->
+        client?.send(TdApi.SendMessage(chat.id, null, null, null, null, content)) { result ->
             if (result is TdApi.Message) {
                 messages = messages + result
                 notifyChanged()
