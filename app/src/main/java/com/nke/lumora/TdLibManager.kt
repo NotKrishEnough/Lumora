@@ -16,6 +16,8 @@ class TdLibManager(context: Context) {
     var error: String? = null
         private set
     private var listener: (() -> Unit)? = null
+    var chats: List<TdApi.Chat> = emptyList()
+        private set
 
     fun observe(listener: () -> Unit) {
         this.listener = listener
@@ -91,6 +93,7 @@ class TdLibManager(context: Context) {
                 state = AuthState.Ready
                 error = null
                 notifyChanged()
+                loadChats()
             }
             is TdApi.AuthorizationStateLoggingOut,
             is TdApi.AuthorizationStateClosing -> {
@@ -99,6 +102,34 @@ class TdLibManager(context: Context) {
             }
             is TdApi.AuthorizationStateClosed -> {
                 state = AuthState.Closed
+                notifyChanged()
+            }
+        }
+    }
+
+    fun loadChats() {
+        client?.send(TdApi.GetChats(TdApi.ChatListMain(), 100)) { result ->
+            if (result is TdApi.Chats) {
+                val ids = result.chatIds
+                if (ids.isEmpty()) {
+                    chats = emptyList()
+                    notifyChanged()
+                    return@send
+                }
+                val loaded = java.util.Collections.synchronizedList(mutableListOf<TdApi.Chat>())
+                var remaining = ids.size
+                ids.forEach { id ->
+                    client?.send(TdApi.GetChat(id)) { chatResult ->
+                        if (chatResult is TdApi.Chat) loaded.add(chatResult)
+                        remaining--
+                        if (remaining == 0) {
+                            chats = loaded.sortedByDescending { it.lastMessage?.date ?: 0 }
+                            notifyChanged()
+                        }
+                    }
+                }
+            } else if (result is TdApi.Error) {
+                error = result.message
                 notifyChanged()
             }
         }
