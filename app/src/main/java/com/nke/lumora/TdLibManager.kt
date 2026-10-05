@@ -166,6 +166,22 @@ class TdLibManager(context: Context) {
         }
     }
 
+    fun sendMessage(text: String) {
+        val chat = selectedChat ?: return
+        if (text.isBlank()) return
+        val formatted = TdApi.FormattedText(text.trim(), null)
+        val content = TdApi.InputMessageText(formatted, null, false)
+        client?.send(TdApi.SendMessage(chat.id, 0, null, null, content)) { result ->
+            if (result is TdApi.Message) {
+                messages = messages + result
+                notifyChanged()
+            } else if (result is TdApi.Error) {
+                error = result.message
+                notifyChanged()
+            }
+        }
+    }
+
     fun closeChat() {
         selectedChat = null
         messages = emptyList()
