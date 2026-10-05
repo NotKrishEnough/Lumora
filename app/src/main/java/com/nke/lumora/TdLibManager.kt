@@ -24,6 +24,14 @@ class TdLibManager(context: Context) {
         private set
     var avatarPaths: Map<Long, String> = emptyMap()
         private set
+    var senderNames: Map<String, String> = emptyMap()
+        private set
+    var mediaPaths: Map<Long, String> = emptyMap()
+        private set
+    var stickers: List<TdApi.Sticker> = emptyList()
+        private set
+    var animations: List<TdApi.Animation> = emptyList()
+        private set
 
     fun observe(listener: () -> Unit) {
         this.listener = listener
@@ -43,14 +51,23 @@ class TdLibManager(context: Context) {
         client = Client.create({ update ->
             when (update) {
                 is TdApi.UpdateAuthorizationState -> handleAuthState(update.authorizationState)
+                is TdApi.UpdateNewMessage -> {
+                    val m = update.message
+                    if (selectedChat?.id == m.chatId && messages.none { it.id == m.id }) {
+                        messages = messages + m
+                        resolveSender(m)
+                        prepareMedia(m)
+                        notifyChanged()
+                    }
+                }
                 is TdApi.UpdateFile -> {
                     val file = update.file
                     if (file.local.isDownloadingCompleted && file.local.path.isNotBlank()) {
                         val match = chats.firstOrNull { it.photo?.small?.id == file.id }
-                        if (match != null) {
-                            avatarPaths = avatarPaths + (match.id to file.local.path)
-                            notifyChanged()
-                        }
+                        if (match != null) avatarPaths = avatarPaths + (match.id to file.local.path)
+                        val mediaMessage = messages.firstOrNull { messageFileId(it) == file.id }
+                        if (mediaMessage != null) mediaPaths = mediaPaths + (mediaMessage.id to file.local.path)
+                        notifyChanged()
                     }
                 }
             }
@@ -161,17 +178,19 @@ class TdLibManager(context: Context) {
         client?.send(TdApi.GetChatHistory(chat.id, 0, 0, 50, false)) { result ->
             if (result is TdApi.Messages) {
                 messages = result.messages?.toList()?.reversed() ?: emptyList()
+                messages.forEach { resolveSender(it); prepareMedia(it) }
                 notifyChanged()
             }
         }
     }
 
-    fun sendMessage(text: String) {
+    fun sendMessage(text: String, replyToMessageId: Long = 0L) {
         val chat = selectedChat ?: return
         if (text.isBlank()) return
         val formatted = TdApi.FormattedText(text.trim(), null)
         val content = TdApi.InputMessageText(formatted, null, false)
-        client?.send(TdApi.SendMessage(chat.id, null, null, null, null, content)) { result ->
+        val replyTo: TdApi.InputMessageReplyTo? = if (replyToMessageId != 0L) TdApi.InputMessageReplyToMessage(replyToMessageId, null, 0, "") else null
+        client?.send(TdApi.SendMessage(chat.id, null, replyTo, null, null, content)) { result ->
             if (result is TdApi.Message) {
                 messages = messages + result
                 notifyChanged()
@@ -182,6 +201,72 @@ class TdLibManager(context: Context) {
         }
     }
 
+    fun forwardMessage(message: TdApi.Message, targetChatId: Long) {
+        client?.send(TdApi.ForwardMessages(targetChatId, null, message.chatId, longArrayOf(message.id), null, false, false)) { result ->
+            if (result is TdApi.Error) { error = result.message; notifyChanged() }
+        }
+    }
+
+    fun loadStickerAndAnimationPicks() {
+        val chatId = selectedChat?.id ?: 0L
+        client?.send(TdApi.GetStickers(null, "", 32, chatId)) { result ->
+            if (result is TdApi.Stickers) {
+                stickers = result.stickers?.toList() ?: emptyList()
+                stickers.forEach { client?.send(TdApi.DownloadFile(it.sticker.id, 1, 0, 0, false)) { } }
+                notifyChanged()
+            }
+        }
+        client?.send(TdApi.GetSavedAnimations()) { result ->
+            if (result is TdApi.Animations) {
+                animations = result.animations?.toList() ?: emptyList()
+                animations.forEach { client?.send(TdApi.DownloadFile(it.animation.id, 1, 0, 0, false)) { } }
+                notifyChanged()
+            }
+        }
+    }
+
+    fun sendSticker(sticker: TdApi.Sticker) {
+        val chat = selectedChat ?: return
+        val input = TdApi.InputSticker(TdApi.InputFileId(sticker.sticker.id), null, sticker.width, sticker.height)
+        val content = TdApi.InputMessageSticker(input, sticker.emoji ?: "")
+        client?.send(TdApi.SendMessage(chat.id, null, null, null, null, content)) { result ->
+            if (result is TdApi.Message) { messages = messages + result; notifyChanged() }
+        }
+    }
+
+    fun sendAnimation(animation: TdApi.Animation) {
+        val chat = selectedChat ?: return
+        val input = TdApi.InputAnimation(TdApi.InputFileId(animation.animation.id), null, intArrayOf(), animation.duration, animation.width, animation.height)
+        val content = TdApi.InputMessageAnimation(input, null, false, false)
+        client?.send(TdApi.SendMessage(chat.id, null, null, null, null, content)) { result ->
+            if (result is TdApi.Message) { messages = messages + result; notifyChanged() }
+        }
+    }
+
+    private fun resolveSender(message: TdApi.Message) {
+        when (val sender = message.senderId) {
+            is TdApi.MessageSenderUser -> client?.send(TdApi.GetUser(sender.userId)) { result ->
+                if (result is TdApi.User) {
+                    val name = listOf(result.firstName, result.lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { "Telegram user" }
+                    senderNames = senderNames + ("u:" + sender.userId to name)
+                    notifyChanged()
+                }
+            }
+            is TdApi.MessageSenderChat -> client?.send(TdApi.GetChat(sender.chatId)) { result ->
+                if (result is TdApi.Chat) { senderNames = senderNames + ("c:" + sender.chatId to result.title); notifyChanged() }
+            }
+        }
+    }
+
+    private fun messageFileId(message: TdApi.Message): Int? = when (val c = message.content) {
+        is TdApi.MessageSticker -> c.sticker?.sticker?.id
+        is TdApi.MessageAnimation -> c.animation?.animation?.id
+        else -> null
+    }
+
+    private fun prepareMedia(message: TdApi.Message) {
+        messageFileId(message)?.let { client?.send(TdApi.DownloadFile(it, 1, 0, 0, false)) { } }
+    }
     fun closeChat() {
         selectedChat = null
         messages = emptyList()
